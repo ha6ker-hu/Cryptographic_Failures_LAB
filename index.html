@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>A02:2021 - Cryptographic Failures LAB</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, Arial, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .container {
+    width: 900px;
+    max-width: 95%;
+    background: #020617;
+    padding: 24px;
+    border-radius: 14px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 1.6rem;
+    color: #f8fafc;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    margin-bottom: 20px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .card {
+    background: #020617;
+    border: 1px solid #1f2937;
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    margin-bottom: 6px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    color: #9ca3af;
+  }
+
+  input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: #020617;
+    color: #e5e7eb;
+  }
+
+  button {
+    margin-top: 12px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: none;
+    background: #2563eb;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  button.secondary {
+    background: transparent;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+  }
+
+  pre {
+    background: #020617;
+    border: 1px solid #1f2937;
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    overflow-x: auto;
+  }
+
+  .danger {
+    color: #fecaca;
+    border-color: #b91c1c;
+    background: #111827;
+  }
+
+  .success {
+    color: #bbf7d0;
+    border-color: #16a34a;
+    background: #022c22;
+  }
+
+  .note {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>A02:2021 – Cryptographic Failures LAB</h1>
+  <div class="subtitle">
+    Practical demonstration of weak cryptography: plain-text passwords, MD5 hashing, and missing encryption.
+  </div>
+
+  <div class="grid">
+
+    <!-- VULNERABLE SECTION -->
+    <div class="card">
+      <h2>❌ Vulnerable Registration</h2>
+      <div class="note">
+        Passwords are stored in <b>plain text</b> and using <b>MD5</b>.
+      </div>
+
+      <label>Username</label>
+      <input id="vUser" placeholder="alice">
+
+      <label>Password</label>
+      <input id="vPass" type="password" placeholder="password123">
+
+      <button onclick="vulnerableRegister()">Register (VULNERABLE)</button>
+
+      <pre id="vOutput" class="danger"></pre>
+    </div>
+
+    <!-- SECURE SECTION -->
+    <div class="card">
+      <h2>✅ Secure Registration</h2>
+      <div class="note">
+        Passwords are hashed using <b>SHA-256 + Salt</b> (demo purpose).
+      </div>
+
+      <label>Username</label>
+      <input id="sUser" placeholder="bob">
+
+      <label>Password</label>
+      <input id="sPass" type="password" placeholder="strongPassword!">
+
+      <button onclick="secureRegister()">Register (SECURE)</button>
+
+      <pre id="sOutput" class="success"></pre>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>📦 Stored Database (Simulated)</h2>
+    <div class="note">
+      Notice how passwords appear in vulnerable vs secure storage.
+    </div>
+    <pre id="dbView"></pre>
+  </div>
+
+</div>
+
+<script>
+// ------------------------------
+// Fake Database
+// ------------------------------
+const database = [];
+
+// ------------------------------
+// Vulnerable: Plain text + MD5
+// ------------------------------
+function vulnerableRegister() {
+  const username = document.getElementById("vUser").value;
+  const password = document.getElementById("vPass").value;
+
+  if (!username || !password) {
+    alert("Enter username & password");
+    return;
+  }
+
+  // ❌ Cryptographic Failure
+  const record = {
+    username,
+    password_plain: password,            // Plain text
+    password_md5: md5(password)           // Weak hashing
+  };
+
+  database.push(record);
+  document.getElementById("vOutput").textContent =
+`User registered with VULNERABLE crypto:
+
+username: ${username}
+password (plain): ${password}
+password (MD5): ${record.password_md5}
+
+❌ Cryptographic Failure:
+- Plain text password
+- Weak hashing (MD5)
+`;
+
+  renderDB();
+}
+
+// ------------------------------
+// Secure: Salt + SHA-256
+// ------------------------------
+async function secureRegister() {
+  const username = document.getElementById("sUser").value;
+  const password = document.getElementById("sPass").value;
+
+  if (!username || !password) {
+    alert("Enter username & password");
+    return;
+  }
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const salted = new TextEncoder().encode(password + arrayToHex(salt));
+  const hashBuffer = await crypto.subtle.digest("SHA-256", salted);
+  const hashHex = arrayToHex(new Uint8Array(hashBuffer));
+
+  const record = {
+    username,
+    password_hash: hashHex,
+    salt: arrayToHex(salt)
+  };
+
+  database.push(record);
+  document.getElementById("sOutput").textContent =
+`User registered SECURELY:
+
+username: ${username}
+password_hash: ${hashHex}
+salt: ${record.salt}
+
+✅ Improved cryptography
+`;
+
+  renderDB();
+}
+
+// ------------------------------
+// Helpers
+// ------------------------------
+function renderDB() {
+  document.getElementById("dbView").textContent =
+JSON.stringify(database, null, 2);
+}
+
+function arrayToHex(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ------------------------------
+// MD5 (intentionally weak)
+// ------------------------------
+function md5(str) {
+  return CryptoJS.MD5(str).toString();
+}
+</script>
+
+<!-- MD5 library (intentionally included to show weakness) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+</body>
+</html>
