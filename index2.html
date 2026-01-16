@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Cryptographic Failures LAB</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, Arial, sans-serif;
+    background: #020617;
+    color: #e5e7eb;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 30px;
+  }
+
+  .app {
+    width: 1100px;
+    max-width: 100%;
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 1.8rem;
+  }
+
+  .subtitle {
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    background: #020617;
+    border: 1px solid #1f2937;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  }
+
+  h2 {
+    font-size: 1.1rem;
+    margin-bottom: 6px;
+  }
+
+  label {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    display: block;
+    margin-top: 10px;
+  }
+
+  input, textarea {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: #020617;
+    color: #e5e7eb;
+    font-size: 0.9rem;
+  }
+
+  button {
+    margin-top: 12px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    background: #2563eb;
+    color: #fff;
+    font-size: 0.85rem;
+  }
+
+  button.secondary {
+    background: transparent;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+  }
+
+  pre {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: #020617;
+    border: 1px solid #1f2937;
+    font-size: 0.8rem;
+    overflow-x: auto;
+  }
+
+  .danger {
+    border-color: #b91c1c;
+    background: #111827;
+    color: #fecaca;
+  }
+
+  .success {
+    border-color: #16a34a;
+    background: #022c22;
+    color: #bbf7d0;
+  }
+
+  .note {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <h1>Advanced Cryptographic Failures LAB</h1>
+  <div class="subtitle">
+    Demonstrating weak JWT secrets, key leakage, predictable tokens, and insecure crypto design.
+  </div>
+
+  <div class="grid">
+
+    <!-- JWT FAILURE -->
+    <div class="card">
+      <h2>❌ Weak JWT Implementation</h2>
+      <div class="note">
+        Hardcoded secret, no rotation, predictable signing.
+      </div>
+
+      <label>Username</label>
+      <input id="jwtUser" value="alice">
+
+      <button onclick="generateWeakJWT()">Generate JWT (VULNERABLE)</button>
+
+      <pre id="jwtOutput" class="danger"></pre>
+
+      <div class="note">
+        Anyone who knows the secret can forge admin tokens.
+      </div>
+    </div>
+
+    <!-- TOKEN FAILURE -->
+    <div class="card">
+      <h2>❌ Predictable Reset Token</h2>
+      <div class="note">
+        Uses Math.random() – not cryptographically secure.
+      </div>
+
+      <button onclick="generateWeakToken()">Generate Reset Token</button>
+
+      <pre id="tokenOutput" class="danger"></pre>
+
+      <div class="note">
+        Tokens can be guessed or brute-forced.
+      </div>
+    </div>
+
+    <!-- KEY LEAKAGE -->
+    <div class="card">
+      <h2>❌ Secret Key Leakage</h2>
+      <div class="note">
+        Secrets exposed in frontend / logs / repo.
+      </div>
+
+      <textarea readonly rows="5">
+const JWT_SECRET = "supersecret123";
+const API_KEY = "AIzaSy-FAKE-KEY-123456";
+const DB_PASSWORD = "password123";
+      </textarea>
+
+      <pre class="danger">
+❌ Cryptographic Failure:
+• Secrets hardcoded
+• Leaked via source code
+• No rotation
+      </pre>
+    </div>
+
+    <!-- SECURE COMPARISON -->
+    <div class="card">
+      <h2>✅ Secure Crypto Design (Reference)</h2>
+      <div class="note">
+        How this SHOULD be implemented.
+      </div>
+
+      <pre class="success">
+✔ JWT:
+- RS256 or strong HS256 secret
+- Short expiry
+- Rotation & revocation
+
+✔ Tokens:
+- crypto.randomBytes()
+- Single use
+- Expiration
+
+✔ Secrets:
+- Environment variables
+- Vault / KMS
+- Never in frontend
+      </pre>
+
+      <button class="secondary" onclick="showSecureMessage()">Show Secure Message</button>
+      <pre id="secureOutput" class="success"></pre>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// -------------------------------
+// WEAK JWT (Simulation)
+// -------------------------------
+const WEAK_JWT_SECRET = "supersecret123"; // ❌ Hardcoded
+
+function generateWeakJWT() {
+  const user = document.getElementById("jwtUser").value;
+
+  // Fake JWT parts (simulation only)
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = btoa(JSON.stringify({
+    user,
+    role: "user",
+    iat: Date.now()
+  }));
+
+  // ❌ Weak "signature"
+  const signature = btoa(header + "." + payload + WEAK_JWT_SECRET);
+
+  const token = `${header}.${payload}.${signature}`;
+
+  document.getElementById("jwtOutput").textContent =
+`Generated JWT (VULNERABLE):
+
+${token}
+
+❌ Problems:
+- Hardcoded secret
+- Predictable signing
+- Easy to forge admin tokens
+`;
+}
+
+// -------------------------------
+// WEAK TOKEN GENERATION
+// -------------------------------
+function generateWeakToken() {
+  // ❌ Predictable randomness
+  const token = Math.random().toString(36).substring(2, 10);
+
+  document.getElementById("tokenOutput").textContent =
+`Password Reset Token:
+
+${token}
+
+❌ Cryptographic Failure:
+- Math.random() is predictable
+- Attacker can guess tokens
+`;
+}
+
+// -------------------------------
+// SECURE MESSAGE
+// -------------------------------
+function showSecureMessage() {
+  document.getElementById("secureOutput").textContent =
+`Secure crypto requires:
+• Correct algorithms
+• Proper key management
+• Secure randomness
+• Token lifecycle control
+
+Crypto is not optional.
+Crypto must be correct.
+`;
+}
+</script>
+
+</body>
+</html>
